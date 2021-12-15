@@ -1,7 +1,6 @@
 import argparse
 import time
 import logging
-import random
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
@@ -10,17 +9,21 @@ import brainflow
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds, BrainFlowError
 from brainflow.data_filter import DataFilter, FilterTypes, AggOperations, WindowFunctions, DetrendOperations
 
+
 # For OpenBCI Cyton the sampling rate is 250Hz and it sends data to buffer every half second.
-# Class Graph taken from https://brainflow.org/2021-07-05-real-time-example/
+# First we wait for 2 seconds and then start transmitting the past 2.1 packets every 0.125 seconds.
 class Graph:
     def __init__(self, board_shim):
         self.board_id = board_shim.get_board_id()
         self.board_shim = board_shim
         self.exg_channels = BoardShim.get_exg_channels(self.board_id)
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
-        self.update_speed_ms = 50
-        self.window_size = 4
-        self.num_points = self.window_size * self.sampling_rate
+        self.update_speed_ms = 125  # every 0.125 seconds, get fresh data
+        self.window_size = 2.1  # size of the sliding window (seconds)
+        self.num_points = int(self.window_size * self.sampling_rate)  # 2,1 * 250 = 525
+
+        print("Sampling rate: {} Hz".format(self.sampling_rate))
+        print("Open channels: {}".format(self.exg_channels))
 
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow(title='BrainFlow Plot', size=(800, 600))
@@ -50,20 +53,20 @@ class Graph:
     def update(self):
         # get_current_board_data doesn’t remove data from the internal buffer, so it allows us to implement sliding window using a single method and little effort
         data = self.board_shim.get_current_board_data(self.num_points)
-        avg_bands = [0, 0, 0, 0, 0]
+        transmit_data = []  # this should be sent to the feature extractor; contains data from 8 channels, each with length 257
         for count, channel in enumerate(self.exg_channels):
             # plot timeseries
             DataFilter.detrend(data[channel], DetrendOperations.LINEAR.value)
-            # Band pass filter
-            DataFilter.perform_bandpass(data[channel], self.sampling_rate, 51.0, 100.0, 2,
+            # Band pass filter of 2-42 Hz
+            DataFilter.perform_bandpass(data[channel], self.sampling_rate, 22, 20, 2,
                                         FilterTypes.BUTTERWORTH.value, 0)
-            # Band stop filter 1 (notch filter)
-            DataFilter.perform_bandstop(data[channel], self.sampling_rate, 50.0, 4.0, 2,
+            # Band stop filter 1 (notch filter) of 60 Hz (+/-1)
+            DataFilter.perform_bandstop(data[channel], self.sampling_rate, 60.0, 1.0, 2,
                                         FilterTypes.BUTTERWORTH.value, 0)
-            # Band stop filter 2 (notch filter)
-            DataFilter.perform_bandstop(data[channel], self.sampling_rate, 60.0, 4.0, 2,
-                                        FilterTypes.BUTTERWORTH.value, 0)
-            self.curves[count].setData(data[channel].tolist())  # This is the data that should be sent to the main unit probably.
+            # Fast Fourier Transform
+            fft = DataFilter.perform_fft(data[channel][:512], WindowFunctions.NO_WINDOW.value)  # data length has to be a power of 2 (currently 512)
+            transmit_data.append(fft)
+            self.curves[count].setData(data[channel].tolist())
 
         self.app.processEvents()
 
@@ -106,6 +109,7 @@ def main():
         board_shim = BoardShim(args.board_id, params)
         board_shim.prepare_session()
         board_shim.start_stream(450000, args.streamer_params)  # maybe we want to change num_samples (buffer size)?
+        time.sleep(2)  # wait for 2 secs (not enough data at the very beginning)
         g = Graph(board_shim)
     except BaseException as e:
         logging.warning('Exception', exc_info=True)
