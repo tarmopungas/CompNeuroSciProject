@@ -1,8 +1,7 @@
-
 import sklearn.cross_decomposition
 import scipy.signal
 import numpy as np
-
+import scipy.io
 
 class CcaExtraction:
     def __init__(self, window_length, target_freqs, sampling_freq):
@@ -53,3 +52,15 @@ class CcaExtraction:
         """
         detrended_signal = scipy.signal.detrend(multichannel_signal, type="linear", axis=0)
         return [self.get_corr(detrended_signal, reference) for reference in self.reference_signals]
+
+
+# Check that everything's working using test data
+mat = scipy.io.loadmat('data/test_data.MAT')  # 128 channels, 256 Hz sampling rate, 5-15-5 seconds of SSVEP data
+eeg = mat['EEGdata']
+data = []
+for i in range(len(eeg)):
+    data.append(list(eeg[i][1266:5064]))  # remove 5 secs from beginning and end; results in len 3798
+
+extractor = CcaExtraction(128, [8], 256)
+features = extractor.extract_features(data)
+print(features)

@@ -65,8 +65,11 @@ class Graph:
                                         FilterTypes.BUTTERWORTH.value, 0)
             # Fast Fourier Transform
             fft = DataFilter.perform_fft(data[channel][:512], WindowFunctions.NO_WINDOW.value)  # data length has to be a power of 2 (currently 512)
-            transmit_data.append(fft)
+            transmit_data.append(fft.tolist())
             self.curves[count].setData(data[channel].tolist())
+        print(len(transmit_data[0]))
+        #with open("eeg_data.txt", "w") as f:
+        #    f.write(",".join([str(l) for l in transmit_data]))
 
         self.app.processEvents()
 
