@@ -1,6 +1,7 @@
 import argparse
 import time
 import logging
+import Pyro4
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
@@ -12,6 +13,7 @@ from brainflow.data_filter import DataFilter, FilterTypes, AggOperations, Window
 
 # For OpenBCI Cyton the sampling rate is 250Hz and it sends data to buffer every half second.
 # First we wait for 2 seconds and then start transmitting the past 2.1 packets every 0.125 seconds.
+@Pyro4.expose
 class Graph:
     def __init__(self, board_shim):
         self.board_id = board_shim.get_board_id()
@@ -73,6 +75,12 @@ class Graph:
 
         self.app.processEvents()
 
+daemon = Pyro4.Daemon()
+ns = Pyro4.locateNS()
+uri = daemon.register(Graph)
+ns.register("EEG",uri)
+print("READY")
+daemon.requestLoop()
 
 def main():
     BoardShim.enable_dev_board_logger()
