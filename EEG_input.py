@@ -55,7 +55,7 @@ class Graph:
     def update(self):
         # get_current_board_data doesn’t remove data from the internal buffer, so it allows us to implement sliding window using a single method and little effort
         data = self.board_shim.get_current_board_data(self.num_points)
-        transmit_data = []  # this should be sent to the feature extractor; contains data from 8 channels, each with length 257
+        transmit_data = []  # this should be sent to the feature extractor (after reformatting!); contains data from 8 channels, each with length 257
         for count, channel in enumerate(self.exg_channels):
             # plot timeseries
             DataFilter.detrend(data[channel], DetrendOperations.LINEAR.value)
@@ -65,13 +65,11 @@ class Graph:
             # Band stop filter 1 (notch filter) of 60 Hz (+/-1)
             DataFilter.perform_bandstop(data[channel], self.sampling_rate, 60.0, 1.0, 2,
                                         FilterTypes.BUTTERWORTH.value, 0)
-            # Fast Fourier Transform
-            fft = DataFilter.perform_fft(data[channel][:512], WindowFunctions.NO_WINDOW.value)  # data length has to be a power of 2 (currently 512)
-            transmit_data.append(fft.tolist())
+            # Fast Fourier Transform (unnecessary)
+            # fft = DataFilter.perform_fft(data[channel][:512], WindowFunctions.NO_WINDOW.value)  # data length has to be a power of 2 (currently 512)
+            # transmit_data.append(fft.tolist())
+            transmit_data.append(data[channel].tolist())
             self.curves[count].setData(data[channel].tolist())
-        print(len(transmit_data[0]))
-        #with open("eeg_data.txt", "w") as f:
-        #    f.write(",".join([str(l) for l in transmit_data]))
 
         self.app.processEvents()
 
@@ -119,7 +117,7 @@ def main():
     try:
         board_shim = BoardShim(args.board_id, params)
         board_shim.prepare_session()
-        board_shim.start_stream(450000, args.streamer_params)  # maybe we want to change num_samples (buffer size)?
+        board_shim.start_stream(450000, args.streamer_params)  # 30 min stream
         time.sleep(2)  # wait for 2 secs (not enough data at the very beginning)
         g = Graph(board_shim)
     except BaseException as e:

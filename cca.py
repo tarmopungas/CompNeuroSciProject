@@ -56,19 +56,9 @@ class CcaExtraction:
         return [self.get_corr(detrended_signal, reference) for reference in self.reference_signals]
 
 
-# Check that everything's working using test data
 daemon = Pyro4.Daemon()
 ns = Pyro4.locateNS()
 uri = daemon.register(CcaExtraction)
 ns.register("CCA",uri)
 print("READY")
 daemon.requestLoop()
-# mat = scipy.io.loadmat('data/test_data.MAT')  # 128 channels, 256 Hz sampling rate, 5-15-5 seconds of SSVEP data
-# eeg = mat['EEGdata']
-# data = []
-# for i in range(len(eeg)):
-#     data.append(list(eeg[i][1266:5064]))  # remove 5 secs from beginning and end; results in len 3798
-
-# extractor = CcaExtraction(128, [8], 256)
-# features = extractor.extract_features(data)
-# print(features)
