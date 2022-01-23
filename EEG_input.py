@@ -1,8 +1,8 @@
 import argparse
 import time
 import logging
-import Pyro4
-
+from cca import CcaExtraction
+from GUI import GUI
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 
@@ -10,10 +10,6 @@ import brainflow
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds, BrainFlowError
 from brainflow.data_filter import DataFilter, FilterTypes, AggOperations, WindowFunctions, DetrendOperations
 
-
-# For OpenBCI Cyton the sampling rate is 250Hz and it sends data to buffer every half second.
-# First we wait for 2 seconds and then start transmitting the past 2.1 packets every 0.125 seconds.
-@Pyro4.expose
 class Graph:
     def __init__(self, board_shim):
         self.board_id = board_shim.get_board_id()
@@ -28,10 +24,9 @@ class Graph:
         print("Open channels: {}".format(self.exg_channels))
 
         self.app = QtGui.QApplication([])
-        self.win = pg.GraphicsWindow(title='BrainFlow Plot', size=(800, 600))
-
-        self._init_timeseries()
-
+        #self.win = pg.GraphicsWindow(title='BrainFlow Plot', size=(800, 600))
+        GUI.main()
+        #self._init_timeseries()
         timer = QtCore.QTimer()
         timer.timeout.connect(self.update)
         timer.start(self.update_speed_ms)
@@ -69,16 +64,17 @@ class Graph:
             # fft = DataFilter.perform_fft(data[channel][:512], WindowFunctions.NO_WINDOW.value)  # data length has to be a power of 2 (currently 512)
             # transmit_data.append(fft.tolist())
             transmit_data.append(data[channel].tolist())
-            self.curves[count].setData(data[channel].tolist())
+            #self.curves[count].setData(data[channel].tolist())
+        # self.app.processEvents()
+        print(transmit_data)
 
-        self.app.processEvents()
+    def extractFeatures(self, data):
+        window_length = 525  # 1 sec
+        target_freqs = [8, 12, 28]
+        sampling_freq = 250  # 256 Hz
+        extractor = CcaExtraction(window_length, target_freqs, sampling_freq)
+        return extractor.extract_features(data)
 
-daemon = Pyro4.Daemon()
-ns = Pyro4.locateNS()
-uri = daemon.register(Graph)
-ns.register("EEG",uri)
-print("READY")
-daemon.requestLoop()
 
 def main():
     BoardShim.enable_dev_board_logger()
@@ -93,7 +89,7 @@ def main():
                         default=0)
     parser.add_argument('--ip-address', type=str, help='ip address', required=False, default='')
     parser.add_argument('--serial-port', type=str, help='serial port', required=False,
-                        default='/dev/cu.usbserial-DM00Q5KG')
+                        default='COM3')
     parser.add_argument('--mac-address', type=str, help='mac address', required=False, default='')
     parser.add_argument('--other-info', type=str, help='other info', required=False, default='')
     parser.add_argument('--streamer-params', type=str, help='streamer params', required=False, default='')

@@ -4,7 +4,7 @@ import numpy as np
 import scipy.io
 import Pyro4
 
-@Pyro4.expose
+# @Pyro4.expose
 class CcaExtraction:
     def __init__(self, window_length=128, target_freqs=[8], sampling_freq=256):
         """
@@ -56,9 +56,9 @@ class CcaExtraction:
         return [self.get_corr(detrended_signal, reference) for reference in self.reference_signals]
 
 
-daemon = Pyro4.Daemon()
-ns = Pyro4.locateNS()
-uri = daemon.register(CcaExtraction)
-ns.register("CCA",uri)
-print("READY")
-daemon.requestLoop()
+# daemon = Pyro4.Daemon()
+# ns = Pyro4.locateNS()
+# uri = daemon.register(CcaExtraction)
+# ns.register("CCA",uri)
+# print("READY")
+# daemon.requestLoop()

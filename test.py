@@ -50,7 +50,6 @@ while start + window_length < end:
         data_8.append([visual1_8[i], visual2_8[i]])
         data_14.append([visual1_14[i], visual2_14[i]])
         data_28.append([visual1_28[i], visual2_28[i]])
-
     result_8 = extractor.extract_features(data_8)
     result_14 = extractor.extract_features(data_14)
     result_28 = extractor.extract_features(data_28)
